@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <cassert>
 #include <memory>
 #include <vector>
@@ -10,6 +11,11 @@
 using std::unique_ptr;
 using std::shared_ptr;
 using std::make_shared;
+
+/* Globals */
+bool KEY_PRESSED[1024];
+GLfloat deltaTime = 0.0f;
+GLfloat lastFrame = 0.0f;
 
 GLenum glCheckError_(const char *file, int line)
 {
@@ -38,9 +44,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
 void clear_screen();
 
-GLint success;
-GLchar infoLog[512];
+static GLint success;
+static GLchar infoLog[512];
 
+/*
 GLfloat vertices[] = {
     0.5f,  0.5f, 0.0f,  // Top Right
     0.5f, -0.5f, 0.0f,  // Bottom Right
@@ -51,6 +58,16 @@ GLuint indices[] = {  // Note that we start from 0!
     0, 1, 3,   // First Triangle
     1, 2, 3    // Second Triangle
 };  
+*/
+GLfloat vertices[] = {
+    -0.5f, -0.5f, 0.0f,
+    0.0f, 0.5f, 0.0f,
+    0.5f, -0.5f, 0.0f,
+};
+
+GLuint indices[] = {
+    0, 1, 2,
+};
 
 enum class ShaderType {
     VERTEX,
@@ -260,16 +277,48 @@ int main() {
         "}\n";
     shared_ptr<ShaderProgram> shader = create_shader_program(vertex_shader_src, fragment_shader_src);
 
-    Mesh triangle = create_mesh(4, &vertices[0], 6, &indices[0], shader);
+    Mesh triangle = create_mesh(3, &vertices[0], 3, &indices[0], shader);
 
+    GLfloat greenValue = 0;
+    GLfloat redValue = 0;
+    GLfloat blueValue = 0;
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
+        GLfloat currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        if (KEY_PRESSED[GLFW_KEY_W]) {
+            greenValue += deltaTime;
+        } else if (KEY_PRESSED[GLFW_KEY_S]) {
+            greenValue -= deltaTime;
+        }
+        greenValue = fmin(fmax(greenValue, 0.0), 1.0);
+
+        if (KEY_PRESSED[GLFW_KEY_D]) {
+            redValue += deltaTime;
+        } else if (KEY_PRESSED[GLFW_KEY_A]) {
+            redValue -= deltaTime;
+        }
+        redValue = fmin(fmax(redValue, 0.0), 1.0);
+
+        if (KEY_PRESSED[GLFW_KEY_E]) {
+            blueValue += deltaTime;
+        } else if (KEY_PRESSED[GLFW_KEY_Q]) {
+            blueValue -= deltaTime;
+        }
+        blueValue = fmin(fmax(blueValue, 0.0), 1.0);
+
         clear_screen();
 
-        GLint vertexColourLocation = glGetUniformLocation(shader->id, "ourColor");
+        GLint vertexColorLocation = glGetUniformLocation(shader->id, "ourColor");
+        if (vertexColorLocation == -1) {
+            std::cerr << "Cannot find uniform location" << std::endl;
+            return 1;
+        }
         use_shader(shader);
-        glUniform4f(vertexColourLocation, 0.0f, 1.0f, 0.0f, 1.0f);
+        glUniform4f(vertexColorLocation, redValue, greenValue, blueValue, 1.0f);
 
         draw_mesh(triangle);
 
@@ -281,8 +330,16 @@ int main() {
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode) {
+    /* Handle single events first */
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+
+    /* Now normal keys */
+    if (action == GLFW_PRESS) {
+        KEY_PRESSED[key] = true;
+    } else if (action == GLFW_RELEASE) {
+        KEY_PRESSED[key] = false;
     }
 }
 
